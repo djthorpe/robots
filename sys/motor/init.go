@@ -24,14 +24,10 @@ func init() {
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Requires: []string{"pwm"},
 		Config: func(config *gopi.AppConfig) {
-			// TODO
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
-			// TODO
 			return gopi.Open(Motor{
-				PWM:      app.ModuleInstance("pwm").(gopi.PWM),
-				Forward:  forward_pin,
-				Backward: backward_pin,
+				PWM: app.ModuleInstance("pwm").(gopi.PWM),
 			}, app.Logger)
 		},
 	})
