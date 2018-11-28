@@ -1,66 +1,58 @@
-package motor
+package motors
 
 import (
+	"context"
 	"fmt"
+	"time"
 
+	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/robots"
 )
 
-type Motor struct {
-	PWM      gopi.PWM
-	Forward  gopi.GPIOPin
-	Backward gopi.GPIOPin
+////////////////////////////////////////////////////////////////////////////////
+// TYPES
+
+type Motors struct {
+	PWM    gopi.PWM
+	Period time.Duration
 }
 
-type motor struct {
-	forward  gopi.GPIOPin
-	backward gopi.GPIOPin
-	pwm      gopi.PWM
-	log      gopi.Logger
+type motors struct {
+	pwm    gopi.PWM
+	period time.Duration
+	log    gopi.Logger
+	motors []robots.Motor
 }
 
 ////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
-// Create new Motor object
-func (config Motor) Open(log gopi.Logger) (gopi.Driver, error) {
-	log.Debug("<sys.robots.Motor>Open{ Forward=%v Backward=%v PWM=%v }", config.Forward, config.Backward, config.PWM)
+// Open creates a new Motors object
+func (config Motors) Open(log gopi.Logger) (gopi.Driver, error) {
+	log.Debug("<sys.robots.Motors>Open{ Period=%v PWM=%v }", config.Period, config.PWM)
 
 	// Check incoming parameters
-	if config.PWM == nil || config.Forward == gopi.GPIO_PIN_NONE || config.Backward == gopi.GPIO_PIN_NONE {
+	if config.PWM == nil {
 		return nil, gopi.ErrBadParameter
 	}
 
 	// create new PWM driver
-	this := new(motor)
+	this := new(motors)
 
 	// Set logging
 	this.log = log
 	this.pwm = config.PWM
-	this.forward = config.Forward
-	this.backward = config.Backward
-
-	// Enable PWM on pins and set duty cycle to zero
-	if err := this.pwm.SetDutyCycle(0, this.forward); err != nil {
-		return nil, err
-	} else if err := this.pwm.SetDutyCycle(0, this.backward); err != nil {
-		return nil, err
-	}
+	this.period = config.Period
+	this.motors = make([]robots.Motor, 0)
 
 	// success
 	return this, nil
 }
 
 // Close Motor object
-func (this *motor) Close() error {
-	this.log.Debug("<sys.robots.Motor>Close{}")
-
-	// Set duty cycle to zero for motor
-	if err := this.pwm.SetDutyCycle(0, this.forward); err != nil {
-		return err
-	} else if err := this.pwm.SetDutyCycle(0, this.backward); err != nil {
-		return err
-	}
+func (this *motors) Close() error {
+	this.log.Debug("<sys.robots.Motors>Close{}")
 
 	// Release resources
 	this.pwm = nil
@@ -71,8 +63,45 @@ func (this *motor) Close() error {
 ////////////////////////////////////////////////////////////////////////////////
 // STRINGIFY
 
-func (this *motor) String() string {
-	return fmt.Sprintf("<sys.robots.Motor>{ }")
+func (this *motors) String() string {
+	return fmt.Sprintf("<sys.robots.Motors>{ pwm=%v period=%v motors=%v }", this.pwm, this.period, this.motors)
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// IMPLEMENTATION
+
+func (this *motors) Add(plus, minus gopi.GPIOPin) (robots.Motor, error) {
+	if plus == gopi.GPIO_PIN_NONE || minus == gopi.GPIO_PIN_NONE {
+		return nil, gopi.ErrBadParameter
+	}
+	// Create a motor object
+	motor := NewMotor(plus, minus)
+	if motor == nil {
+		return nil, gopi.ErrBadParameter
+	}
+	// Set period
+	if this.period != 0 {
+		if err := this.pwm.SetPeriod(this.period, plus); err != nil {
+			return nil, err
+		}
+		if err := this.pwm.SetPeriod(this.period, minus); err != nil {
+			return nil, err
+		}
+	}
+	// Set duty cycle to zero (off)
+	if err := this.pwm.SetDutyCycle(0, plus); err != nil {
+		return nil, err
+	}
+	if err := this.pwm.SetDutyCycle(0, minus); err != nil {
+		return nil, err
+	}
+	// Append motor and return success
+	this.motors = append(this.motors, motor)
+	return motor, nil
+}
+
+func (this *motors) Run(ctx context.Context, speed map[robots.Motor]float32) error {
+	return gopi.ErrNotImplemented
 }
 
 /*

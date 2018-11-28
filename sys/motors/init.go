@@ -8,11 +8,12 @@
 
 */
 
-package motor
+package motors
 
 import (
 	// Frameworks
 	"github.com/djthorpe/gopi"
+	"github.com/djthorpe/gopi-hw/sys/pwm"
 )
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -20,15 +21,25 @@ import (
 
 func init() {
 	gopi.RegisterModule(gopi.Module{
-		Name:     "robots/motor",
+		Name:     "robots/motors",
 		Type:     gopi.MODULE_TYPE_OTHER,
 		Requires: []string{"pwm"},
 		Config: func(config *gopi.AppConfig) {
+			config.AppFlags.FlagString("motors.frequency", "", "Default frequency for driving motor")
 		},
 		New: func(app *gopi.AppInstance) (gopi.Driver, error) {
-			return gopi.Open(Motor{
+			config := Motors{
 				PWM: app.ModuleInstance("pwm").(gopi.PWM),
-			}, app.Logger)
+			}
+			if frequency, _ := app.AppFlags.GetString("motors.frequency"); frequency == "" {
+				// Do nothing
+			} else if period, err := pwm.ParseFrequency(frequency); err != nil {
+				// Return error
+				return nil, err
+			} else {
+				config.Period = period
+			}
+			return gopi.Open(config, app.Logger)
 		},
 	})
 }
