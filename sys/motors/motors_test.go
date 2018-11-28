@@ -35,3 +35,20 @@ func TestApp_000(t *testing.T) {
 		t.Log(motors)
 	}
 }
+
+////////////////////////////////////////////////////////////////////////////////
+// CREATE MOTORS
+
+func TestMotors_000(t *testing.T) {
+	// Create app
+	config := gopi.NewAppConfig("robots/motors")
+	if app, err := gopi.NewAppInstance(config); err != nil {
+		t.Fatal(err)
+	} else if motors := app.ModuleInstance("robots/motors").(robots.Motors); motors == nil {
+		t.Fatal("Motors module not found")
+	} else if _, err := motors.Add(gopi.GPIOPin(19), gopi.GPIOPin(20)); err != nil {
+		t.Error(err)
+	} else {
+		t.Log(motors)
+	}
+}
