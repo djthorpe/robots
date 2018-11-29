@@ -54,8 +54,14 @@ func (config Motors) Open(log gopi.Logger) (gopi.Driver, error) {
 func (this *motors) Close() error {
 	this.log.Debug("<sys.robots.Motors>Close{}")
 
+	// Stop all motors
+	if err := this.Stop(); err != nil {
+		return err
+	}
+
 	// Release resources
 	this.pwm = nil
+	this.motors = nil
 
 	return nil
 }
@@ -70,12 +76,13 @@ func (this *motors) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENTATION
 
-func (this *motors) Add(plus, minus gopi.GPIOPin) (robots.Motor, error) {
+func (this *motors) Add(minus, plus gopi.GPIOPin, invert bool) (robots.Motor, error) {
+	this.log.Debug2("<sys.robots.Motors>Add{ minus=%v plus=%v invert=%v }", minus, plus, invert)
 	if plus == gopi.GPIO_PIN_NONE || minus == gopi.GPIO_PIN_NONE {
 		return nil, gopi.ErrBadParameter
 	}
 	// Create a motor object
-	motor := NewMotor(plus, minus)
+	motor := NewMotor(plus, minus, invert)
 	if motor == nil {
 		return nil, gopi.ErrBadParameter
 	}
@@ -100,7 +107,45 @@ func (this *motors) Add(plus, minus gopi.GPIOPin) (robots.Motor, error) {
 	return motor, nil
 }
 
-func (this *motors) Run(ctx context.Context, speed map[robots.Motor]float32) error {
+func (this *motors) Run(ctx context.Context, speed float32, motors ...robots.Motor) error {
+	this.log.Debug2("<sys.robots.Motors>Run{ speed=%v motors=%v }", speed, motors)
+	if ctx == nil {
+		return gopi.ErrBadParameter
+	}
+	return gopi.ErrNotImplemented
+}
+
+func (this *motors) Stop(motors ...robots.Motor) error {
+	this.log.Debug2("<sys.robots.Motors>Cancel{ motors=%v }", motors)
+
+	// All motors if no argument is provided
+	if len(motors) == 0 {
+		motors = this.motors
+	}
+
+	// Cancel all
+	for _, m := range motors {
+		if err := this.stop_motor(m.(*motor)); err != nil {
+			return err
+		}
+	}
+
+	// Return success
+	return nil
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+func (this *motors) stop_motor(motor *motor) error {
+	if motor.cancel != nil {
+		motor.cancel()
+		// TODO: do not return from here until cancel is completed
+	}
+	return nil
+}
+
+func (this *motors) start_motor(motor *motor, speed float32) error {
 	return gopi.ErrNotImplemented
 }
 
