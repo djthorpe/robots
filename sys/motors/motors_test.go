@@ -3,6 +3,7 @@ package motors_test
 import (
 	"context"
 	"testing"
+	"time"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -65,8 +66,15 @@ func TestMotors_001(t *testing.T) {
 		t.Error(err)
 	} else if right, err := motors.Add(gopi.GPIOPin(21), gopi.GPIOPin(26), false); err != nil {
 		t.Error(err)
+	} else if err := motors.Run(context.Background(), 1.0, left, right); err != nil {
+		t.Error(err)
 	} else {
-		motors.Run(context.Background(), 1.0, left, right)
-		t.Log(motors)
+		// Run for one second then stop
+		time.Sleep(time.Second)
+		if err := motors.Stop(left, right); err != nil {
+			t.Error(err)
+		} else {
+			t.Log(motors)
+		}
 	}
 }
