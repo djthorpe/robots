@@ -73,17 +73,18 @@ func mainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 		return app.Logger.Error("Missing PWM module instance")
 	}
 
+	left, _ := app.AppFlags.GetFloat64("left")
+	right, _ := app.AppFlags.GetFloat64("right")
+	duration, _ := app.AppFlags.GetDuration("duration")
+
 	// Set up motors
-	right := NewMotor(app.PWM, M1P, M1N, false)
-	left := NewMotor(app.PWM, M2P, M2N, true)
-
-	left.SetSpeed(1.0)
-	right.SetSpeed(-1.0)
-
-	time.Sleep(1.0 * time.Second)
-
-	left.SetSpeed(0.0)
-	right.SetSpeed(0.0)
+	right_motor := NewMotor(app.PWM, M1P, M1N, false)
+	left_motor := NewMotor(app.PWM, M2P, M2N, true)
+	left_motor.SetSpeed(float32(left))
+	right_motor.SetSpeed(float32(right))
+	time.Sleep(duration)
+	left_motor.SetSpeed(0.0)
+	right_motor.SetSpeed(0.0)
 
 	// Finished
 	done <- gopi.DONE
@@ -93,6 +94,9 @@ func mainLoop(app *gopi.AppInstance, done chan<- struct{}) error {
 func main() {
 	// Create the configuration, load the spi instance
 	config := gopi.NewAppConfig("pwm")
+	config.AppFlags.FlagFloat64("left", 0.0, "Left motor (-1 to 1)")
+	config.AppFlags.FlagFloat64("right", 0.0, "Right motor (-1 to 1)")
+	config.AppFlags.FlagDuration("duration", time.Second, "Duration")
 
 	// Run the command line tool
 	os.Exit(gopi.CommandLineTool(config, mainLoop))
