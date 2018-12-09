@@ -26,6 +26,14 @@ type motors struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// CONSTANTS
+
+const (
+	SPEED_MIN float32 = -1.0
+	SPEED_MAX float32 = +1.0
+)
+
+////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
 // Open creates a new Motors object
@@ -54,8 +62,14 @@ func (config Motors) Open(log gopi.Logger) (gopi.Driver, error) {
 func (this *motors) Close() error {
 	this.log.Debug("<sys.robots.Motors>Close{}")
 
+	// Stop all motors
+	if err := this.Stop(); err != nil {
+		return err
+	}
+
 	// Release resources
 	this.pwm = nil
+	this.motors = nil
 
 	return nil
 }
@@ -70,12 +84,13 @@ func (this *motors) String() string {
 ////////////////////////////////////////////////////////////////////////////////
 // IMPLEMENTATION
 
-func (this *motors) Add(plus, minus gopi.GPIOPin) (robots.Motor, error) {
+func (this *motors) Add(minus, plus gopi.GPIOPin, invert bool) (robots.Motor, error) {
+	this.log.Debug2("<sys.robots.Motors>Add{ minus=%v plus=%v invert=%v }", minus, plus, invert)
 	if plus == gopi.GPIO_PIN_NONE || minus == gopi.GPIO_PIN_NONE {
 		return nil, gopi.ErrBadParameter
 	}
 	// Create a motor object
-	motor := NewMotor(plus, minus)
+	motor := NewMotor(plus, minus, invert)
 	if motor == nil {
 		return nil, gopi.ErrBadParameter
 	}
@@ -100,8 +115,46 @@ func (this *motors) Add(plus, minus gopi.GPIOPin) (robots.Motor, error) {
 	return motor, nil
 }
 
-func (this *motors) Run(ctx context.Context, speed map[robots.Motor]float32) error {
-	return gopi.ErrNotImplemented
+func (this *motors) Run(ctx context.Context, speed float32, motors ...robots.Motor) error {
+	this.log.Debug2("<sys.robots.Motors>Run{ speed=%v motors=%v }", speed, motors)
+
+	// Check context and speed parameters
+	if ctx == nil {
+		return gopi.ErrBadParameter
+	}
+	if speed < SPEED_MIN || speed > SPEED_MAX {
+		return gopi.ErrBadParameter
+	}
+
+	// All motors if no argument is provided
+	if len(motors) == 0 {
+		motors = this.motors
+	}
+
+	// Start all
+	for _, m := range motors {
+		_, cancel := context.WithCancel(ctx)
+		m.(*motor).do_start(speed, cancel)
+	}
+
+	return nil
+}
+
+func (this *motors) Stop(motors ...robots.Motor) error {
+	this.log.Debug2("<sys.robots.Motors>Cancel{ motors=%v }", motors)
+
+	// All motors if no argument is provided
+	if len(motors) == 0 {
+		motors = this.motors
+	}
+
+	// Stop all
+	for _, m := range motors {
+		m.(*motor).do_stop()
+	}
+
+	// Return success
+	return nil
 }
 
 /*
