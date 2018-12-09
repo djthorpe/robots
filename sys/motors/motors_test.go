@@ -78,3 +78,27 @@ func TestMotors_001(t *testing.T) {
 		}
 	}
 }
+
+func TestMotors_002(t *testing.T) {
+	// Create app
+	config := gopi.NewAppConfig("robots/motors")
+	if app, err := gopi.NewAppInstance(config); err != nil {
+		t.Fatal(err)
+	} else if motors := app.ModuleInstance("robots/motors").(robots.Motors); motors == nil {
+		t.Fatal("Motors module not found")
+	} else if left, err := motors.Add(gopi.GPIOPin(19), gopi.GPIOPin(20), false); err != nil {
+		t.Error(err)
+	} else if right, err := motors.Add(gopi.GPIOPin(21), gopi.GPIOPin(26), false); err != nil {
+		t.Error(err)
+	} else {
+		ctx, _ := context.WithTimeout(context.Background(), time.Second*5.0)
+		if err := motors.Run(ctx, 1.0, left, right); err != nil {
+			t.Error(err)
+		} else if err := motors.Run(ctx, 0.5, left, right); err != nil {
+			t.Error(err)
+		} else {
+			// Run for one second then cancel
+			time.Sleep(time.Second)
+		}
+	}
+}

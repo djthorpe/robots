@@ -26,6 +26,14 @@ type motors struct {
 }
 
 ////////////////////////////////////////////////////////////////////////////////
+// CONSTANTS
+
+const (
+	SPEED_MIN float32 = -1.0
+	SPEED_MAX float32 = +1.0
+)
+
+////////////////////////////////////////////////////////////////////////////////
 // OPEN AND CLOSE
 
 // Open creates a new Motors object
@@ -109,10 +117,27 @@ func (this *motors) Add(minus, plus gopi.GPIOPin, invert bool) (robots.Motor, er
 
 func (this *motors) Run(ctx context.Context, speed float32, motors ...robots.Motor) error {
 	this.log.Debug2("<sys.robots.Motors>Run{ speed=%v motors=%v }", speed, motors)
+
+	// Check context and speed parameters
 	if ctx == nil {
 		return gopi.ErrBadParameter
 	}
-	return gopi.ErrNotImplemented
+	if speed < SPEED_MIN || speed > SPEED_MAX {
+		return gopi.ErrBadParameter
+	}
+
+	// All motors if no argument is provided
+	if len(motors) == 0 {
+		motors = this.motors
+	}
+
+	// Start all
+	for _, m := range motors {
+		_, cancel := context.WithCancel(ctx)
+		m.(*motor).do_start(speed, cancel)
+	}
+
+	return nil
 }
 
 func (this *motors) Stop(motors ...robots.Motor) error {
@@ -123,30 +148,13 @@ func (this *motors) Stop(motors ...robots.Motor) error {
 		motors = this.motors
 	}
 
-	// Cancel all
+	// Stop all
 	for _, m := range motors {
-		if err := this.stop_motor(m.(*motor)); err != nil {
-			return err
-		}
+		m.(*motor).do_stop()
 	}
 
 	// Return success
 	return nil
-}
-
-////////////////////////////////////////////////////////////////////////////////
-// PRIVATE METHODS
-
-func (this *motors) stop_motor(motor *motor) error {
-	if motor.cancel != nil {
-		motor.cancel()
-		// TODO: do not return from here until cancel is completed
-	}
-	return nil
-}
-
-func (this *motors) start_motor(motor *motor, speed float32) error {
-	return gopi.ErrNotImplemented
 }
 
 /*

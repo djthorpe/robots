@@ -3,6 +3,7 @@ package motors
 import (
 	"context"
 	"fmt"
+	"sync"
 
 	// Frameworks
 	"github.com/djthorpe/gopi"
@@ -16,6 +17,8 @@ type motor struct {
 	speed       float32
 	factor      float32
 	cancel      context.CancelFunc
+
+	sync.Mutex
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -58,4 +61,32 @@ func (this *motor) Minus() gopi.GPIOPin {
 
 func (this *motor) Speed() float32 {
 	return this.speed
+}
+
+////////////////////////////////////////////////////////////////////////////////
+// PRIVATE METHODS
+
+func (this *motor) do_stop() {
+	this.Lock()
+	defer this.Unlock()
+	if this.cancel != nil {
+		this.cancel()
+		this.cancel = nil
+		this.speed = 0.0
+	}
+	fmt.Println("do_stop m=", this)
+}
+
+func (this *motor) do_start(speed float32, cancel context.CancelFunc) {
+	this.Lock()
+	defer this.Unlock()
+	if this.cancel != nil {
+		this.cancel()
+		this.speed = 0.0
+	}
+	if cancel != nil {
+		this.cancel = cancel
+	}
+	this.speed = speed * this.factor
+	fmt.Println("do_start m=", this)
 }
